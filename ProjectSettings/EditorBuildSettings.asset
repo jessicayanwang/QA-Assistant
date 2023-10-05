@@ -1,0 +1,14 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Hololens.unity
+    guid: e5c004071d931494fb64787a72cd3b3a
+  m_configObjects:
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: cb0f6eafdd544de408b9c1bb69199cd6, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 6d00994abacf6d843871e9e211fdb0c9, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 13400182ee94eb343954255c2558c670, type: 2}
