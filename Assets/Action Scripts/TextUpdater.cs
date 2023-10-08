@@ -12,17 +12,30 @@ public class TargetTextResponse
 public class TextUpdater : MonoBehaviour
 {
     public TextMeshProUGUI targetText;
-
     private readonly string backendUrl = "http://127.0.0.1:5000/get_target_text";
+    private bool isUpdatingText = false;
 
-    private bool isUpdatingText = true;
-
-    private void Start()
+    public void StartUpdatingText()
     {
-        StartCoroutine(StartUpdatingText());
+        if (!isUpdatingText)
+        {
+            isUpdatingText = true;
+            targetText.gameObject.SetActive(true);
+            StartCoroutine(UpdateTextRoutine());
+        }
     }
 
-    IEnumerator StartUpdatingText()
+    public void StopUpdatingText()
+    {
+        if (isUpdatingText)
+        {
+            isUpdatingText = false;
+            targetText.gameObject.SetActive(false);
+            StopAllCoroutines();
+        }
+    }
+
+    IEnumerator UpdateTextRoutine()
     {
         while (isUpdatingText)
         {
@@ -51,10 +64,5 @@ public class TextUpdater : MonoBehaviour
 
             yield return new WaitForSeconds(1f); // Polling interval
         }
-    }
-
-    public void StopUpdatingText()
-    {
-        isUpdatingText = false;
     }
 }
