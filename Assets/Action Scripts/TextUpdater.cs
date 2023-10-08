@@ -15,14 +15,16 @@ public class TextUpdater : MonoBehaviour
 
     private readonly string backendUrl = "http://127.0.0.1:5000/get_target_text";
 
+    private bool isUpdatingText = true;
+
     private void Start()
     {
-        StartCoroutine(UpdateText());
+        StartCoroutine(StartUpdatingText());
     }
 
-    IEnumerator UpdateText()
+    IEnumerator StartUpdatingText()
     {
-        while (true)
+        while (isUpdatingText)
         {
             UnityWebRequest request = UnityWebRequest.Get(backendUrl);
             yield return request.SendWebRequest();
@@ -49,5 +51,10 @@ public class TextUpdater : MonoBehaviour
 
             yield return new WaitForSeconds(1f); // Polling interval
         }
+    }
+
+    public void StopUpdatingText()
+    {
+        isUpdatingText = false;
     }
 }
