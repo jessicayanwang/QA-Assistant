@@ -1,148 +1,145 @@
+//
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE.md file in the project root for full license information.
+//
+// <code>
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Windows.Speech;
+using Microsoft.CognitiveServices.Speech;
+#if PLATFORM_ANDROID
+using UnityEngine.Android;
+#endif
+#if PLATFORM_IOS
+using UnityEngine.iOS;
+using System.Collections;
+#endif
 
-/// <summary>
-/// dictation mode is the mode where the PC tries to recognize the speech with out any assistnace or guidance. it is the most clear way.
-/// 
-/// Hypotethis are thrown super fast, but could have mistakes.
-/// Resulted complete phrase will be determined once the person stops speaking. the best guess from the PC will go on the result.
-/// 
-/// for grammer controls and ruels see here
-/// https://www.w3.org/TR/speech-grammar/
-/// 
-/// added by shachar oz
-/// </summary>
 public class DictationEngine : MonoBehaviour
 {
-    public Text ResultedText;
+    // Hook up the two properties below with a Text and Button object in your UI.
+    public Text outputText;
+    public Button startRecoButton;
 
-    protected DictationRecognizer dictationRecognizer;
+    private object threadLocker = new object();
+    private bool waitingForReco;
+    private string message;
 
-    [System.Serializable]
-    public class UnityEventString : UnityEngine.Events.UnityEvent<string> { };
-    public UnityEventString OnPhraseRecognized;
+    private bool micPermissionGranted = false;
 
-    public UnityEngine.Events.UnityEvent OnUserStartedSpeaking;
+#if PLATFORM_ANDROID || PLATFORM_IOS
+    // Required to manifest microphone permission, cf.
+    // https://docs.unity3d.com/Manual/android-manifest.html
+    private Microphone mic;
+#endif
 
-    private bool isUserSpeaking;
-
-    void Start()
+    public async void ButtonClick()
     {
-        StartDictationEngine();
-    }
+        // Creates an instance of a speech config with specified subscription key and service region.
+        // Replace with your own subscription key and service region (e.g., "westus").
+        var config = SpeechConfig.FromSubscription("8a122857214847c9bc1c530227a3eac8", "canadacentral");
 
-    /// <summary>
-    /// Hypotethis are thrown super fast, but could have mistakes.
-    /// </summary>
-    /// <param name="text"></param>
-    private void DictationRecognizer_OnDictationHypothesis(string text)
-    {
-        Debug.LogFormat("Dictation hypothesis: {0}", text);
-
-        if (isUserSpeaking == false)
+        // Make sure to dispose the recognizer after use!
+        using (var recognizer = new SpeechRecognizer(config))
         {
-            isUserSpeaking = true;
-            OnUserStartedSpeaking.Invoke();
-        }
-    }
-
-    /// <summary>
-    /// thrown when engine has some messages, that are not specifically errors
-    /// </summary>
-    /// <param name="completionCause"></param>
-    private void DictationRecognizer_OnDictationComplete(DictationCompletionCause completionCause)
-    {
-        if (completionCause != DictationCompletionCause.Complete)
-        {
-            Debug.LogWarningFormat("Dictation completed unsuccessfully: {0}.", completionCause);
-
-
-            switch (completionCause)
+            lock (threadLocker)
             {
-                case DictationCompletionCause.TimeoutExceeded:
-                case DictationCompletionCause.PauseLimitExceeded:
-                    //we need a restart
-                    CloseDictationEngine();
-                    StartDictationEngine();
-                    break;
+                waitingForReco = true;
+            }
 
-                case DictationCompletionCause.UnknownError:
-                case DictationCompletionCause.AudioQualityFailure:
-                case DictationCompletionCause.MicrophoneUnavailable:
-                case DictationCompletionCause.NetworkFailure:
-                    //error without a way to recover
-                    CloseDictationEngine();
-                    break;
+            // Starts speech recognition, and returns after a single utterance is recognized. The end of a
+            // single utterance is determined by listening for silence at the end or until a maximum of 15
+            // seconds of audio is processed.  The task returns the recognition text as result.
+            // Note: Since RecognizeOnceAsync() returns only a single utterance, it is suitable only for single
+            // shot recognition like command or query.
+            // For long-running multi-utterance recognition, use StartContinuousRecognitionAsync() instead.
+            var result = await recognizer.RecognizeOnceAsync().ConfigureAwait(false);
 
-                case DictationCompletionCause.Canceled:
-                //happens when focus moved to another application 
+            // Checks result.
+            string newMessage = string.Empty;
+            if (result.Reason == ResultReason.RecognizedSpeech)
+            {
+                newMessage = result.Text;
+            }
+            else if (result.Reason == ResultReason.NoMatch)
+            {
+                newMessage = "NOMATCH: Speech could not be recognized.";
+            }
+            else if (result.Reason == ResultReason.Canceled)
+            {
+                var cancellation = CancellationDetails.FromResult(result);
+                newMessage = $"CANCELED: Reason={cancellation.Reason} ErrorDetails={cancellation.ErrorDetails}";
+            }
 
-                case DictationCompletionCause.Complete:
-                    CloseDictationEngine();
-                    StartDictationEngine();
-                    break;
+            lock (threadLocker)
+            {
+                message = newMessage;
+                waitingForReco = false;
             }
         }
     }
 
-    /// <summary>
-    /// Resulted complete phrase will be determined once the person stops speaking. the best guess from the PC will go on the result.
-    /// </summary>
-    /// <param name="text"></param>
-    /// <param name="confidence"></param>
-    private void DictationRecognizer_OnDictationResult(string text, ConfidenceLevel confidence)
+    void Start()
     {
-        Debug.LogFormat("Dictation result: {0}", text);
-        if (ResultedText) ResultedText.text += text + "\n";
-
-
-
-        if (isUserSpeaking == true)
+        if (outputText == null)
         {
-            isUserSpeaking = false;
-            OnPhraseRecognized.Invoke(text);
+            UnityEngine.Debug.LogError("outputText property is null! Assign a UI Text element to it.");
+        }
+        else if (startRecoButton == null)
+        {
+            message = "startRecoButton property is null! Assign a UI Button to it.";
+            UnityEngine.Debug.LogError(message);
+        }
+        else
+        {
+            // Continue with normal initialization, Text and Button objects are present.
+#if PLATFORM_ANDROID
+            // Request to use the microphone, cf.
+            // https://docs.unity3d.com/Manual/android-RequestingPermissions.html
+            message = "Waiting for mic permission";
+            if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
+            {
+                Permission.RequestUserPermission(Permission.Microphone);
+            }
+#elif PLATFORM_IOS
+            if (!Application.HasUserAuthorization(UserAuthorization.Microphone))
+            {
+                Application.RequestUserAuthorization(UserAuthorization.Microphone);
+            }
+#else
+            micPermissionGranted = true;
+            message = "Click button to recognize speech";
+#endif
+            startRecoButton.onClick.AddListener(ButtonClick);
         }
     }
 
-    private void DictationRecognizer_OnDictationError(string error, int hresult)
+    void Update()
     {
-        Debug.LogErrorFormat("Dictation error: {0}; HResult = {1}.", error, hresult);
-    }
-
-
-    private void OnApplicationQuit()
-    {
-        CloseDictationEngine();
-    }
-
-    private void StartDictationEngine()
-    {
-        isUserSpeaking = false;
-
-        dictationRecognizer = new DictationRecognizer();
-
-        dictationRecognizer.DictationHypothesis += DictationRecognizer_OnDictationHypothesis;
-        dictationRecognizer.DictationResult += DictationRecognizer_OnDictationResult;
-        dictationRecognizer.DictationComplete += DictationRecognizer_OnDictationComplete;
-        dictationRecognizer.DictationError += DictationRecognizer_OnDictationError;
-
-        dictationRecognizer.Start();
-    }
-
-    private void CloseDictationEngine()
-    {
-        if (dictationRecognizer != null)
+#if PLATFORM_ANDROID
+        if (!micPermissionGranted && Permission.HasUserAuthorizedPermission(Permission.Microphone))
         {
-            dictationRecognizer.DictationHypothesis -= DictationRecognizer_OnDictationHypothesis;
-            dictationRecognizer.DictationComplete -= DictationRecognizer_OnDictationComplete;
-            dictationRecognizer.DictationResult -= DictationRecognizer_OnDictationResult;
-            dictationRecognizer.DictationError -= DictationRecognizer_OnDictationError;
+            micPermissionGranted = true;
+            message = "Click button to recognize speech";
+        }
+#elif PLATFORM_IOS
+        if (!micPermissionGranted && Application.HasUserAuthorization(UserAuthorization.Microphone))
+        {
+            micPermissionGranted = true;
+            message = "Click button to recognize speech";
+        }
+#endif
 
-            if (dictationRecognizer.Status == SpeechSystemStatus.Running)
-                dictationRecognizer.Stop();
-
-            dictationRecognizer.Dispose();
+        lock (threadLocker)
+        {
+            if (startRecoButton != null)
+            {
+                startRecoButton.interactable = !waitingForReco && micPermissionGranted;
+            }
+            if (outputText != null)
+            {
+                outputText.text = message;
+            }
         }
     }
 }
+// </code>
