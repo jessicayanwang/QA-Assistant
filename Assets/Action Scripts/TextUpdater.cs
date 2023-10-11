@@ -12,32 +12,17 @@ public class TargetTextResponse
 public class TextUpdater : MonoBehaviour
 {
     public TextMeshProUGUI targetText;
+
     private readonly string backendUrl = "http://127.0.0.1:5000/get_target_text";
-    private bool isUpdatingText = false;
 
-    public void StartUpdatingText()
+    private void Start()
     {
-        if (!isUpdatingText)
-        {
-            isUpdatingText = true;
-            targetText.gameObject.SetActive(true);
-            StartCoroutine(UpdateTextRoutine());
-        }
+        StartCoroutine(UpdateText());
     }
 
-    public void StopUpdatingText()
+    IEnumerator UpdateText()
     {
-        if (isUpdatingText)
-        {
-            isUpdatingText = false;
-            targetText.gameObject.SetActive(false);
-            StopAllCoroutines();
-        }
-    }
-
-    IEnumerator UpdateTextRoutine()
-    {
-        while (isUpdatingText)
+        while (true)
         {
             UnityWebRequest request = UnityWebRequest.Get(backendUrl);
             yield return request.SendWebRequest();
