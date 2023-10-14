@@ -53,7 +53,13 @@ def get_response(prompt):
     return trim_to_last_complete_sentence(generated_text)
 
 
-def generate_response(context, question, max_qa_length=4096, max_similarity_length=128):
+def generate_response(question, context="paper", max_qa_length=4096, max_similarity_length=128):
+    # Convert pdf file to a text file
+    pdf_file_path = context + '.pdf'
+    extract_text_from_pdf(pdf_file_path)
+    with open('context.txt', 'r') as f:
+        context = f.read()
+
     sentences = context.split(".")
 
     # Load the fine-tuned QA model and tokenizer
@@ -158,20 +164,5 @@ def generate_response(context, question, max_qa_length=4096, max_similarity_leng
 
     response = get_response(prompt)
     print("Final response:", response)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Pass context file name and question as arguments.")
-    parser.add_argument("--context", type=str, required=True, help="The PDF file containing the context (without the '.pdf' extension).")
-    parser.add_argument("--question", type=str, required=True, help="The question to be answered.")
-    args = parser.parse_args()
-    # Convert pdf file to a text file
-    pdf_file_path = args.context + '.pdf'
-    extract_text_from_pdf(pdf_file_path)
-    with open('context.txt', 'r') as f:
-        context = f.read()
-
-    question = args.question
-
-    generate_response(context, question)
+    return response
 

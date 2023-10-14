@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from Models.generate_response import generate_response
 
 app = Flask(__name__)
 
@@ -17,9 +18,10 @@ def get_target_text():
 @app.route('/set_target_text', methods=['POST'])
 def set_target_text():
     global current_text
-    new_text = request.json.get('target_text')
-    if new_text is not None:
-        current_text = new_text
+    question = request.json.get('target_text')
+    if question is not None:
+        response = generate_response(question)
+        current_text = response
         return jsonify({"message": "Target text updated successfully"})
     else:
         return jsonify({"error": "Invalid request format"}), 400
