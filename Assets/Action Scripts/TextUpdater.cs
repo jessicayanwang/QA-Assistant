@@ -17,37 +17,37 @@ public class TextUpdater : MonoBehaviour
 
     private void Start()
     {
-        StartCoroutine(UpdateText());
+        InvokeRepeating("UpdateText", 0f, 1f);
     }
 
-    IEnumerator UpdateText()
+    void UpdateText()
     {
-        while (true)
+        StartCoroutine(FetchAndUpdateText());
+    }
+
+    IEnumerator FetchAndUpdateText()
+    {
+        UnityWebRequest request = UnityWebRequest.Get(backendUrl);
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
         {
-            UnityWebRequest request = UnityWebRequest.Get(backendUrl);
-            yield return request.SendWebRequest();
+            string jsonResponse = request.downloadHandler.text;
+            TargetTextResponse response = JsonUtility.FromJson<TargetTextResponse>(jsonResponse);
 
-            if (request.result == UnityWebRequest.Result.Success)
+            if (response != null)
             {
-                string jsonResponse = request.downloadHandler.text;
-                TargetTextResponse response = JsonUtility.FromJson<TargetTextResponse>(jsonResponse);
-
-                if (response != null)
-                {
-                    string newText = response.target_text;
-                    targetText.text = newText;
-                }
-                else
-                {
-                    Debug.LogError("Failed to parse JSON response.");
-                }
+                string newText = response.target_text;
+                targetText.text = newText;
             }
             else
             {
-                Debug.LogError("Failed to fetch data from the backend.");
+                Debug.LogError("Failed to parse JSON response.");
             }
-
-            yield return new WaitForSeconds(1f); // Polling interval
+        }
+        else
+        {
+            Debug.LogError("Failed to fetch data from the backend.");
         }
     }
 }

@@ -1,36 +1,25 @@
-//
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE.md file in the project root for full license information.
-//
-// <code>
 using UnityEngine;
 using UnityEngine.UI;
 using Microsoft.CognitiveServices.Speech;
-#if PLATFORM_ANDROID
-using UnityEngine.Android;
-#endif
-#if PLATFORM_IOS
-using UnityEngine.iOS;
+using System;
 using System.Collections;
-#endif
+using PimDeWitte.UnityMainThreadDispatcher;
+using UnityEngine.Networking;
+using System.Collections.Generic;
+
 
 public class DictationEngine : MonoBehaviour
 {
-    // Hook up the two properties below with a Text and Button object in your UI.
     public Text outputText;
     public Button startRecoButton;
 
-    private object threadLocker = new object();
+    private readonly object threadLocker = new();
     private bool waitingForReco;
     private string message;
 
     private bool micPermissionGranted = false;
 
-#if PLATFORM_ANDROID || PLATFORM_IOS
-    // Required to manifest microphone permission, cf.
-    // https://docs.unity3d.com/Manual/android-manifest.html
-    private Microphone mic;
-#endif
+    private UnityMainThreadDispatcher dispatcher; // Reference to the UnityMainThreadDispatcher
 
     public async void ButtonClick()
     {
@@ -39,76 +28,96 @@ public class DictationEngine : MonoBehaviour
         var config = SpeechConfig.FromSubscription("8a122857214847c9bc1c530227a3eac8", "canadacentral");
 
         // Make sure to dispose the recognizer after use!
-        using (var recognizer = new SpeechRecognizer(config))
+        using var recognizer = new SpeechRecognizer(config);
+        lock (threadLocker)
         {
-            lock (threadLocker)
-            {
-                waitingForReco = true;
-            }
-
-            // Starts speech recognition, and returns after a single utterance is recognized. The end of a
-            // single utterance is determined by listening for silence at the end or until a maximum of 15
-            // seconds of audio is processed.  The task returns the recognition text as result.
-            // Note: Since RecognizeOnceAsync() returns only a single utterance, it is suitable only for single
-            // shot recognition like command or query.
-            // For long-running multi-utterance recognition, use StartContinuousRecognitionAsync() instead.
-            var result = await recognizer.RecognizeOnceAsync().ConfigureAwait(false);
-
-            // Checks result.
-            string newMessage = string.Empty;
-            if (result.Reason == ResultReason.RecognizedSpeech)
-            {
-                newMessage = result.Text;
-            }
-            else if (result.Reason == ResultReason.NoMatch)
-            {
-                newMessage = "NOMATCH: Speech could not be recognized.";
-            }
-            else if (result.Reason == ResultReason.Canceled)
-            {
-                var cancellation = CancellationDetails.FromResult(result);
-                newMessage = $"CANCELED: Reason={cancellation.Reason} ErrorDetails={cancellation.ErrorDetails}";
-            }
-
-            lock (threadLocker)
-            {
-                message = newMessage;
-                waitingForReco = false;
-            }
+            waitingForReco = true;
         }
+
+        // Starts speech recognition, and returns after a single utterance is recognized.
+        var result = await recognizer.RecognizeOnceAsync().ConfigureAwait(false);
+
+        // Checks result.
+        string newMessage = string.Empty;
+        if (result.Reason == ResultReason.RecognizedSpeech)
+        {
+            newMessage = result.Text;
+            // Send the recognized text to Flask backend 
+            dispatcher.Enqueue(SendToBackend(newMessage));
+        }
+        else if (result.Reason == ResultReason.NoMatch)
+        {
+            newMessage = "NOMATCH: Speech could not be recognized.";
+        }
+        else if (result.Reason == ResultReason.Canceled)
+        {
+            var cancellation = CancellationDetails.FromResult(result);
+            newMessage = $"CANCELED: Reason={cancellation.Reason} ErrorDetails={cancellation.ErrorDetails}";
+        }
+
+        lock (threadLocker)
+        {
+            message = newMessage;
+            waitingForReco = false;
+        }
+    }
+
+    public IEnumerator SendToBackend(string text)
+    {
+        string backendUrl = "http://127.0.0.1:5000/set_target_text";
+
+        TargetTextResponse jsonData = new()
+        {
+            target_text = text
+        };
+        string jsonDataString = JsonUtility.ToJson(jsonData);
+
+        var uwr = new UnityWebRequest(backendUrl, "POST");
+        byte[] bodyRaw = new System.Text.UTF8Encoding().GetBytes(jsonDataString);
+        uwr.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+        uwr.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+        uwr.SetRequestHeader("Content-Type", "application/json");
+
+        yield return uwr.SendWebRequest();
+
+        if (uwr.result == UnityWebRequest.Result.ConnectionError)
+        {
+            dispatcher.Enqueue(() => Debug.LogError("Error sending data to backend: " + uwr.error));
+        }
+        else if (uwr.result == UnityWebRequest.Result.Success)
+        {
+            dispatcher.Enqueue(() => Debug.Log("Data sent to backend successfully"));
+        }
+
+        // Use the dispatcher to update the UI from the main thread
+        dispatcher.Enqueue(() => {
+            if (outputText != null)
+            {
+                outputText.text = message;
+            }
+        });
     }
 
     void Start()
     {
+        dispatcher = UnityMainThreadDispatcher.Instance(); // Get the instance of the dispatcher
+
         if (outputText == null)
         {
-            UnityEngine.Debug.LogError("outputText property is null! Assign a UI Text element to it.");
+            Debug.LogError("outputText property is null! Assign a UI Text element to it.");
         }
         else if (startRecoButton == null)
         {
             message = "startRecoButton property is null! Assign a UI Button to it.";
-            UnityEngine.Debug.LogError(message);
+            Debug.LogError(message);
         }
         else
         {
             // Continue with normal initialization, Text and Button objects are present.
-#if PLATFORM_ANDROID
-            // Request to use the microphone, cf.
-            // https://docs.unity3d.com/Manual/android-RequestingPermissions.html
-            message = "Waiting for mic permission";
-            if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
-            {
-                Permission.RequestUserPermission(Permission.Microphone);
-            }
-#elif PLATFORM_IOS
-            if (!Application.HasUserAuthorization(UserAuthorization.Microphone))
-            {
-                Application.RequestUserAuthorization(UserAuthorization.Microphone);
-            }
-#else
+
             micPermissionGranted = true;
             message = "Click button to recognize speech";
-#endif
+
             startRecoButton.onClick.AddListener(ButtonClick);
         }
     }
