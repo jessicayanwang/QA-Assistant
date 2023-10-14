@@ -167,7 +167,7 @@ def evaluate(example):
 
     start_score, end_score = get_best_valid_start_end_idx(start_scores[0], end_scores[0], top_k=8, max_size=16)
 
-    # Let's convert the input ids back to actual tokens
+    # convert the input ids back to actual tokens
     all_tokens = tokenizer.convert_ids_to_tokens(encoding["input_ids"][0].tolist())
     answer_tokens = all_tokens[start_score: end_score + 1]
     example["output"] = tokenizer.decode(tokenizer.convert_tokens_to_ids(answer_tokens))

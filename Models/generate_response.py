@@ -5,7 +5,6 @@ import torch
 from scipy.spatial.distance import cosine
 import numpy as np
 import openai
-import argparse
 import PyPDF2
 import re
 
@@ -118,11 +117,11 @@ def generate_response(question, context="paper", max_qa_length=4096, max_similar
     embeddings1 = similarity_model(**inputs1)[0].mean(dim=1).reshape(-1)
 
     # Check if the context is less than 128 tokens
+    context_tokens = similarity_tokenizer.encode(context)
     if len(context_tokens) < max_similarity_length:
         context_chunks = [context]
     else:
         # Split the context into chunks with a maximum token length of 128
-        context_tokens = similarity_tokenizer.encode(context)
         similarity_chunk_size = max_similarity_length - len(inputs1["input_ids"][0]) - 2  # Subtracting question length and special tokens
         context_chunks = []
         for i in range(0, len(context_tokens), similarity_chunk_size):
@@ -139,26 +138,18 @@ def generate_response(question, context="paper", max_qa_length=4096, max_similar
 
     # Find the top 2 most similar chunks
     top1_index = 0
-    top2_index = 1
-    if similarities[top1_index][1] < similarities[top2_index][1]:
-        top1_index, top2_index = top2_index, top1_index
 
-    for i in range(2, len(similarities)):
+    for i in range(1, len(similarities)):
         if similarities[i][1] > similarities[top1_index][1]:
-            top2_index = top1_index
             top1_index = i
-        elif similarities[i][1] > similarities[top2_index][1]:
-            top2_index = i
 
     fact1, _ = similarities[top1_index]
-    fact2, _ = similarities[top2_index]
     print("fact1:", fact1)
-    print("fact2:", fact2)
 
     prompt = f"I am presenting at a conference and I have got this question: " \
              f"{question}. I know that answers are {answer}. I want to respond to the question " \
-             f"while mentioning the answers and incorporating these relevant sentences " \
-             f"{fact1}, {fact2}. Please generate a script that I could read for this question. " \
+             f"while mentioning the answers and incorporating this relevant sentence " \
+             f"{fact1}. Please generate a script that I could read for this question. " \
              f"Begin response with sentences like 'Just to repeat, you are saying that', 'That's a good question' or " \
              f"'Interesting question'. Produce answer that is about 50 words long." \
 

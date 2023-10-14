@@ -13,6 +13,9 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 
+#Environment
+/env
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/
@@ -77,5 +80,12 @@ crashlytics-build.properties
 
 # iOs framework
 /Assets/SpeechSDK/Plugins/iOS/libMicrosoft.CognitiveServices.Speech.core.a
+
+# Model outputs
+/similarity_model
+/qa_model
+/output
+context.txt
+__pycache__/
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
