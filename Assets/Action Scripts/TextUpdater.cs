@@ -7,6 +7,7 @@ using System.Collections;
 public class TargetTextResponse
 {
     public string target_text;
+    public string confidence;
 }
 
 public class TextUpdater : MonoBehaviour
@@ -39,6 +40,15 @@ public class TextUpdater : MonoBehaviour
             {
                 string newText = response.target_text;
                 targetText.text = newText;
+                string confidence = response.confidence;
+                var textColor = confidence switch
+                {
+                    "high" => Color.green,
+                    "mid" => new Color(1.0f, 0.5f, 0.0f),// Orange
+                    "low" => Color.red,
+                    _ => Color.black,// default black
+                };
+                targetText.color = textColor;
             }
             else
             {

@@ -3,26 +3,11 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from transformers import BigBirdForQuestionAnswering, BigBirdTokenizer, AutoModel, AutoTokenizer
 import torch
 from scipy.spatial.distance import cosine
-import numpy as np
 import openai
-import PyPDF2
 import re
-
-def extract_text_from_pdf(pdf_file):
-    with open(pdf_file, "rb") as file:
-        # Initialize a PdfReader object
-        pdf_reader = PyPDF2.PdfReader(file)
-
-        # Initialize a string to store the extracted text
-        extracted_text = ""
-
-        # Loop through all pages in the PDF file and extract text
-        for page in pdf_reader.pages:
-            extracted_text += page.extract_text()
-
-    # Save the extracted text to a text file
-    with open("context.txt", "w", encoding="utf-8") as output_file:
-        output_file.write(extracted_text)
+import multiprocessing
+import time
+import pickle
 
 
 def trim_to_last_complete_sentence(text):
@@ -37,30 +22,21 @@ def trim_to_last_complete_sentence(text):
     return " ".join(sentences)
 
 
-def get_response(prompt):
+def get_response(question, prompt):
     openai.api_key = "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"
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
+                {"role": "system", "content": "You are a presenter at a conference answering audience questions."},
+                {"role": "user", "content": question}, 
+                {"role": "system", "content": prompt}
         ]
     )
     generated_text = response.choices[0]['message']['content'].strip()
     return trim_to_last_complete_sentence(generated_text)
 
 
-def generate_response(question, context="paper", max_qa_length=4096, max_similarity_length=128):
-    # Convert pdf file to a text file
-    pdf_file_path = context + '.pdf'
-    extract_text_from_pdf(pdf_file_path)
-    with open('context.txt', 'r') as f:
-        context = f.read()
-
-    sentences = context.split(".")
-
+def generate_answer(question, context, return_dict, max_qa_length=4096):
     # Load the fine-tuned QA model and tokenizer
     qa_model = BigBirdForQuestionAnswering.from_pretrained('qa_model')
     qa_tokenizer = BigBirdTokenizer.from_pretrained('qa_model')
@@ -107,8 +83,11 @@ def generate_response(question, context="paper", max_qa_length=4096, max_similar
             max_confidence = conf
             best_answer = ans
 
-    print("Answer:", best_answer)
+    return_dict["answer"] = best_answer
+    return_dict["confidence"] = max_confidence
 
+
+def generate_fact(question, context, return_dict, max_similarity_length=128):
     # Load the fine-tuned sentence similarity model and tokenizer
     similarity_model = AutoModel.from_pretrained('similarity_model')
     similarity_tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-distilroberta-base-v1')
@@ -144,16 +123,41 @@ def generate_response(question, context="paper", max_qa_length=4096, max_similar
             top1_index = i
 
     fact1, _ = similarities[top1_index]
-    print("fact1:", fact1)
 
-    prompt = f"I am presenting at a conference and I have got this question: " \
-             f"{question}. I know that answers are {answer}. I want to respond to the question " \
-             f"while mentioning the answers and incorporating this relevant sentence " \
-             f"{fact1}. Please generate a script that I could read for this question. " \
-             f"Begin response with sentences like 'Just to repeat, you are saying that', 'That's a good question' or " \
-             f"'Interesting question'. Produce answer that is about 50 words long." \
+    return_dict["fact1"] = fact1
 
-    response = get_response(prompt)
-    print("Final response:", response)
-    return response
+def generate_response(question, max_qa_length=4096, max_similarity_length=128):
+    starttime = time.time()
+    
+    # Load context
+    with open("context.pk1", 'rb') as file:
+        context = pickle.load(file)
+
+    # Generate outputs in parallel
+    manager = multiprocessing.Manager()
+    return_dict = manager.dict()
+    p1 = multiprocessing.Process(target=generate_answer, args=(question, context, return_dict, max_qa_length))
+    p1.start()
+    p2 = multiprocessing.Process(target=generate_fact, args=(question, context, return_dict, max_similarity_length))
+    p2.start()
+    p1.join()
+    p2.join()
+    print('Models took {} seconds'.format(time.time() - starttime))
+    gpt_starttime = time.time()
+    prompt = f"You know the answer is {return_dict['answer']}. You want to respond to the question " \
+             f"while mentioning the answer and incorporating this relevant fact " \
+             f"{return_dict['fact1']}. Please generate a smooth script to answer this question as requested" \
+             f" Produce answer that is about 50 words long." \
+
+    response = get_response(question, prompt)
+
+    print('GPT took {} seconds'.format(time.time() - gpt_starttime))
+
+    if return_dict["confidence"] < 0.5:
+        confidence = 'low'
+    elif return_dict["confidence"] >= 0.5 and return_dict["confidence"] < 0.7:
+        confidence = 'mid'
+    else:
+        confidence = 'high'
+    return response, confidence
 
