@@ -30,11 +30,12 @@ def get_response(question, prompt):
                 {"role": "system", "content": "You are a presenter at a conference answering audience questions."},
                 {"role": "user", "content": question}, 
                 {"role": "system", "content": prompt}
-        ]
+        ], 
+        stream=True
     )
-    generated_text = response.choices[0]['message']['content'].strip()
-    return trim_to_last_complete_sentence(generated_text)
-
+    for chunk in response:
+        if chunk['choices'][0]["finish_reason"] != "stop":
+            yield chunk['choices'][0]['delta']['content']
 
 def generate_answer(question, context, return_dict, max_qa_length=4096):
     # Load the fine-tuned QA model and tokenizer
@@ -79,13 +80,13 @@ def generate_answer(question, context, return_dict, max_qa_length=4096):
         answers.append((answer, confidence))
 
     for ans, conf in answers:
+        print(ans)
         if conf > max_confidence:
             max_confidence = conf
             best_answer = ans
 
     return_dict["answer"] = best_answer
     return_dict["confidence"] = max_confidence
-
 
 def generate_fact(question, context, return_dict, max_similarity_length=128):
     # Load the fine-tuned sentence similarity model and tokenizer
@@ -143,21 +144,20 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=128):
     p1.join()
     p2.join()
     print('Models took {} seconds'.format(time.time() - starttime))
-    gpt_starttime = time.time()
     prompt = f"You know the answer is {return_dict['answer']}. You want to respond to the question " \
              f"while mentioning the answer and incorporating this relevant fact " \
              f"{return_dict['fact1']}. Please generate a smooth script to answer this question as requested" \
              f" Produce answer that is about 50 words long." \
 
-    response = get_response(question, prompt)
-
-    print('GPT took {} seconds'.format(time.time() - gpt_starttime))
-
+    print(return_dict["confidence"])
     if return_dict["confidence"] < 0.5:
         confidence = 'low'
-    elif return_dict["confidence"] >= 0.5 and return_dict["confidence"] < 0.7:
+    elif (return_dict["confidence"] >= 0.5 and return_dict["confidence"] < 0.7):
         confidence = 'mid'
     else:
         confidence = 'high'
-    return response, confidence
+
+    for chunk in get_response(question, prompt):
+        yield chunk, confidence
+
 

@@ -24,9 +24,10 @@ def set_target_text():
     global current_confidence
     question = request.json.get('target_text')
     if question is not None:
-        response, confidence = generate_response(question)
-        current_text = response
-        current_confidence = confidence
+        current_text = ''
+        for chunk, confidence in generate_response(question):
+            current_text += chunk
+            current_confidence = confidence
         return jsonify({"message": "Target text updated successfully"})
     else:
         return jsonify({"error": "Invalid request format"}), 400

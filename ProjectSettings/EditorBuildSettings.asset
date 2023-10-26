@@ -6,9 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Hololens.unity
-    guid: e5c004071d931494fb64787a72cd3b3a
+    path: Assets/Scenes/HoloLens.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
   m_configObjects:
-    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: cb0f6eafdd544de408b9c1bb69199cd6, type: 2}
-    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 6d00994abacf6d843871e9e211fdb0c9, type: 2}
-    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 13400182ee94eb343954255c2558c670, type: 2}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 1a6ab1e7f4bcc9d4498df9cbc6a6891a, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 8fab1938e2309a149bbf6da3edeb08f2, type: 2}
