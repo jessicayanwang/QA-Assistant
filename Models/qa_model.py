@@ -1,6 +1,6 @@
 import torch
 import huggingface as hf
-from datasets import load_dataset, ClassLabel
+from datasets import load_dataset
 import random
 import pandas as pd
 from IPython.display import display, HTML
@@ -42,7 +42,7 @@ def get_sub_answers(answers, begin=0, end=None):
 
 def expand_to_aliases(given_answers, make_sub_answers=False):
     if make_sub_answers:
-    # if answers are longer than one word, make sure a predictions is correct if it coresponds to the complete 1: or :-1 sub word
+    # if answers are longer than one word, make sure a predictions is correct if it corresponds to the complete 1: or :-1 sub word
     # *e.g.* if the correct answer contains a prefix such as "the", or "a"
         given_answers = given_answers + get_sub_answers(given_answers, begin=1) + get_sub_answers(given_answers, end=-1)
     answers = []
@@ -65,7 +65,7 @@ def get_best_valid_start_end_idx(start_scores, end_scores, top_k=1, max_size=100
     return best_start_idx[best_score % top_k], best_end_idx[best_score // top_k]
 
 
-def prepare_training_data(example):
+def prepare_training_data(example, tokenizer):
     encoded_inputs = tokenizer(example['question'], example['context'], padding = 'max_length', truncation=True, max_length = 4096)
     start_char = example['start']
     answer = example['answers']
@@ -77,7 +77,7 @@ def prepare_training_data(example):
     return example
 
 
-def my_collate_fn(examples):
+def my_collate_fn(examples, tokenizer):
     encoded_inputs = tokenizer([example['question'] for example in examples],
                                [example['context'] for example in examples],
                                return_tensors='pt', padding='max_length', truncation=True, max_length=4096)
@@ -91,7 +91,7 @@ def my_collate_fn(examples):
 
 def train(model, tokenizer, optimizer: AdamW, train_set, validation_set, num_train_epochs: int, batch_size: int,
           max_input_length: int = 4096, gradient_accumulation_steps: int = 1):
-    my_trainset_dataloader = DataLoader(train_set, batch_size=batch_size, collate_fn=my_collate_fn)
+    my_trainset_dataloader = DataLoader(train_set, batch_size=batch_size, collate_fn=lambda batch: my_collate_fn(batch, tokenizer))
 
     # set training mode on the model
     model.train()
@@ -142,7 +142,7 @@ def train(model, tokenizer, optimizer: AdamW, train_set, validation_set, num_tra
         print(f"\t Train loss = {epoch_train_loss / len(train_set):.4f}")
 
         model.eval()
-        results = validation_set.map(evaluate)
+        results = validation_set.map(lambda x: evaluate(x, model=model, tokenizer=tokenizer))
         em = 100 * sum(results['match']) / len(results)
         print("Exact Match (EM): {:.2f}".format(em))
 
@@ -157,7 +157,7 @@ def train(model, tokenizer, optimizer: AdamW, train_set, validation_set, num_tra
 
 
 
-def evaluate(example):
+def evaluate(example, model, tokenizer):
     # encode question and context so that they are seperated by a tokenizer.sep_token and cut at max_length
     encoding = tokenizer(example["question"], example["context"], return_tensors="pt", max_length=4096, padding="max_length", truncation=True)
     input_ids = encoding.input_ids.to("cuda")
@@ -182,6 +182,7 @@ def evaluate(example):
     return example
 
 
+
 if __name__ == '__main__':
     # load data
     train_raw = load_dataset("adversarial_qa", "adversarialQA", split="train[:50]")
@@ -199,9 +200,9 @@ if __name__ == '__main__':
     model = BigBirdForQuestionAnswering.from_pretrained("google/bigbird-base-trivia-itc")
 
     # prepare training data for training
-    train_prepared = train_dataset.map(prepare_training_data, remove_columns=['answers'])
+    train_prepared = train_dataset.map(lambda x: prepare_training_data(x, tokenizer=tokenizer), remove_columns=['answers'])
 
     # start training
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     train(model=model, tokenizer=tokenizer, optimizer=optimizer, train_set=train_prepared,
-          validation_set=validation_dataset, num_train_epochs=3, batch_size=4, gradient_accumulation_steps=3)
+        validation_set=validation_dataset, num_train_epochs=3, batch_size=4, gradient_accumulation_steps=3)
