@@ -12,6 +12,7 @@ Microsoft.CognitiveServices.Speech.extension.kws.dll
 Microsoft.CognitiveServices.Speech.extension.kws.ort.dll
 Microsoft.CognitiveServices.Speech.extension.lu.dll
 Microsoft.CognitiveServices.Speech.extension.mas.dll
+FPIEProcessor.dll
 Microsoft.CognitiveServices.Speech.extension.onnxruntime.dll
 Microsoft.CognitiveServices.Speech.extension.telemetry.dll
 Microsoft.CognitiveServices.Speech.extension.vad.dll

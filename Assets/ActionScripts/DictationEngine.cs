@@ -25,7 +25,7 @@ public class DictationEngine : MonoBehaviour
     {
         // Creates an instance of a speech config with specified subscription key and service region.
         // Replace with your own subscription key and service region (e.g., "westus").
-        var config = SpeechConfig.FromSubscription("8a122857214847c9bc1c530227a3eac8", "canadacentral");
+        var config = SpeechConfig.FromSubscription("68fb38d50fbd4f15a84d473b4a622aa5", "eastus");
 
         // Make sure to dispose the recognizer after use!
         using var recognizer = new SpeechRecognizer(config);
