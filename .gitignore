@@ -84,7 +84,7 @@ crashlytics-build.properties
 # Model outputs
 Models/similarity_model
 Models/qa_model
-Models/output
+output
 context.txt
 __pycache__/
 
