@@ -39,8 +39,8 @@ def get_response(question, prompt):
 
 def generate_answer(question, context, return_dict, max_qa_length=4096):
     # Load the fine-tuned QA model and tokenizer
-    qa_model = BigBirdForQuestionAnswering.from_pretrained('qa_model')
-    qa_tokenizer = BigBirdTokenizer.from_pretrained('qa_model')
+    qa_model = BigBirdForQuestionAnswering.from_pretrained('Models/qa_model')
+    qa_tokenizer = BigBirdTokenizer.from_pretrained('Models/qa_model')
 
     # Tokenize the question separately to get the question length
     question_tokens = qa_tokenizer.encode(question, return_tensors="pt")
@@ -87,6 +87,7 @@ def generate_answer(question, context, return_dict, max_qa_length=4096):
 
     return_dict["answer"] = best_answer
     return_dict["confidence"] = max_confidence
+    print('answer:', best_answer)
 
 def generate_fact(question, context, return_dict, max_similarity_length=128):
     # Load the fine-tuned sentence similarity model and tokenizer

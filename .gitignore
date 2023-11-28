@@ -82,9 +82,9 @@ crashlytics-build.properties
 /Assets/SpeechSDK/Plugins/iOS/libMicrosoft.CognitiveServices.Speech.core.a
 
 # Model outputs
-/similarity_model
-/qa_model
-/output
+Models/similarity_model
+Models/qa_model
+Models/output
 context.txt
 __pycache__/
 

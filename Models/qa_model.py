@@ -3,7 +3,7 @@ import huggingface as hf
 from datasets import load_dataset
 import random
 import pandas as pd
-from IPython.display import display, HTML
+# from IPython.display import display, HTML
 from transformers import BigBirdTokenizerFast, BigBirdForQuestionAnswering, AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -33,7 +33,7 @@ def show_random_elements(dataset, num_examples=10):
         picks.append(pick)
 
     df = pd.DataFrame(dataset[picks])
-    display(HTML(df.to_html()))
+    # display(HTML(df.to_html()))
 
 
 def get_sub_answers(answers, begin=0, end=None):
@@ -69,7 +69,7 @@ def prepare_training_data(example, tokenizer):
     encoded_inputs = tokenizer(example['question'], example['context'], padding = 'max_length', truncation=True, max_length = 4096)
     start_char = example['start']
     answer = example['answers']
-    end_char = start_char + len(answer)
+    end_char = start_char + len(answer) - 1
     start = encoded_inputs.char_to_token(start_char, sequence_index=1)
     end = encoded_inputs.char_to_token(end_char, sequence_index=1)
     example["start"] = start
@@ -80,7 +80,7 @@ def prepare_training_data(example, tokenizer):
 def my_collate_fn(examples, tokenizer):
     encoded_inputs = tokenizer([example['question'] for example in examples],
                                [example['context'] for example in examples],
-                               return_tensors='pt', padding='max_length', truncation=True, max_length=4096)
+                               return_tensors='pt', padding='max_length', truncation=True, max_length=4096, return_attention_mask=True)
     start_positions = torch.tensor([example['start'] for example in examples])
     end_positions = torch.tensor([example['end'] for example in examples])
     return {'input_ids': encoded_inputs['input_ids'],
@@ -159,7 +159,7 @@ def train(model, tokenizer, optimizer: AdamW, train_set, validation_set, num_tra
 
 def evaluate(example, model, tokenizer):
     # encode question and context so that they are seperated by a tokenizer.sep_token and cut at max_length
-    encoding = tokenizer(example["question"], example["context"], return_tensors="pt", max_length=4096, padding="max_length", truncation=True)
+    encoding = tokenizer(example["question"], example["context"], return_tensors="pt", max_length=4096, padding="max_length", truncation=True, return_attention_mask=True)
     input_ids = encoding.input_ids.to("cuda")
 
     with torch.no_grad():
@@ -185,15 +185,15 @@ def evaluate(example, model, tokenizer):
 
 if __name__ == '__main__':
     # load data
-    train_raw = load_dataset("adversarial_qa", "adversarialQA", split="train[:50]")
-    validation_raw = load_dataset("adversarial_qa", "adversarialQA", split="validation[:10]")
+    train_raw = load_dataset("adversarial_qa", "adversarialQA", split="train")
+    validation_raw = load_dataset("adversarial_qa", "adversarialQA", split="validation")
     # format validation + train dataset
     validation_dataset = validation_raw.map(format_dataset, remove_columns=["title", "metadata"])
     train_dataset = train_raw.map(format_dataset, remove_columns=["title", "metadata"])
     # only include samples with context
     train_dataset = train_dataset.filter(lambda x: len(x["context"]) > 0)
     validation_dataset = validation_dataset.filter(lambda x: len(x["context"]) > 0)
-    short_validation_dataset = validation_dataset.filter(lambda x: (len(x['question']) + len(x['context'])) < 1000)  # <-200 is the max length to include in the set. It needs to be changed to incorporate richer data points.
+    short_validation_dataset = validation_dataset.filter(lambda x: (len(x['question']) + len(x['context'])) < 1000) 
 
     # load bigbird tokenizer and model
     tokenizer = BigBirdTokenizerFast.from_pretrained("google/bigbird-base-trivia-itc")
@@ -202,7 +202,14 @@ if __name__ == '__main__':
     # prepare training data for training
     train_prepared = train_dataset.map(lambda x: prepare_training_data(x, tokenizer=tokenizer), remove_columns=['answers'])
 
-    # start training
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
-    train(model=model, tokenizer=tokenizer, optimizer=optimizer, train_set=train_prepared,
-        validation_set=validation_dataset, num_train_epochs=3, batch_size=4, gradient_accumulation_steps=3)
+    # # start training
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    # train(model=model, tokenizer=tokenizer, optimizer=optimizer, train_set=train_prepared,
+    #     validation_set=validation_dataset, num_train_epochs=3, batch_size=5, gradient_accumulation_steps=5)
+
+    # evaluate baseline
+    tokenizer = BigBirdTokenizerFast.from_pretrained("google/bigbird-base-trivia-itc")
+    model = BigBirdForQuestionAnswering.from_pretrained("google/bigbird-base-trivia-itc").to('cuda')
+    results = validation_dataset.map(lambda x: evaluate(x, model=model, tokenizer=tokenizer))
+    em = 100 * sum(results['match']) / len(results)
+    print("Exact Match (EM): {:.2f}".format(em))
