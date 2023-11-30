@@ -171,7 +171,7 @@ if __name__ == '__main__':
     batch_size = 4
     num_epochs = 4
     fine_tuned_model = train_sentence_transformer(model, train_examples, validation_examples, batch_size, num_epochs)
-    fine_tuned_model.save("similarity_model")
+    fine_tuned_model.save("Web/similarity_model")
 
     # evaluation
     pearson_correlation_orig, spearman_correlation_orig, mse_orig = evaluate(model, test_examples, batch_size)

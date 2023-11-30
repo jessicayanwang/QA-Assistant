@@ -91,7 +91,7 @@ def generate_answer(question, context, return_dict, max_qa_length=4096):
 
 def generate_fact(question, context, return_dict, max_similarity_length=128):
     # Load the fine-tuned sentence similarity model and tokenizer
-    similarity_model = AutoModel.from_pretrained('similarity_model')
+    similarity_model = AutoModel.from_pretrained('jyw22/sentence_similarity')
     similarity_tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-distilroberta-base-v1')
 
     inputs1 = similarity_tokenizer(question, return_tensors="pt", padding=True, truncation=True)
