@@ -14,7 +14,7 @@ public class TextUpdater : MonoBehaviour
 {
     public TextMeshPro targetText;
 
-    private readonly string backendUrl = "http://127.0.0.1:5000/get_target_text";
+    private readonly string backendUrl = "http://34.130.78.182/get_target_text";
 
     private void Start()
     {

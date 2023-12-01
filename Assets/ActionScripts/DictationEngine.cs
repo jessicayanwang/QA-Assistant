@@ -64,7 +64,7 @@ public class DictationEngine : MonoBehaviour
 
     public IEnumerator SendToBackend(string text)
     {
-        string backendUrl = "http://127.0.0.1:5000/set_target_text";
+        string backendUrl = "http://34.130.78.182/set_target_text";
 
         TargetTextResponse jsonData = new()
         {
