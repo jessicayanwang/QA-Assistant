@@ -2,6 +2,9 @@ Flask
 gunicorn
 transformers
 -f https://download.pytorch.org/whl/torch_stable.html
-torch==2.1.0+cpu
+torch==2.1.1+cpu
 scipy
-openai
+sentencepiece
+sentence-transformers
+scikit-learn
+openai==0.28

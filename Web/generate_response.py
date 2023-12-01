@@ -9,7 +9,6 @@ import multiprocessing
 import time
 import pickle
 
-
 def trim_to_last_complete_sentence(text):
     # Split the text into individual sentences
     sentences = re.split(r'(?<=[\.\?!])\s+', text)
@@ -37,8 +36,7 @@ def get_response(question, prompt):
         if chunk['choices'][0]["finish_reason"] != "stop":
             yield chunk['choices'][0]['delta']['content']
 
-def generate_answer(question, context, return_dict, max_qa_length=4096):
-    # Load the fine-tuned QA model and tokenizer
+def generate_answer(question, context, max_qa_length=4096):
     qa_model = BigBirdForQuestionAnswering.from_pretrained('jyw22/qa_model')
     qa_tokenizer = BigBirdTokenizer.from_pretrained('jyw22/qa_tokenizer')
 
@@ -85,14 +83,12 @@ def generate_answer(question, context, return_dict, max_qa_length=4096):
             max_confidence = conf
             best_answer = ans
 
-    return_dict["answer"] = best_answer
-    return_dict["confidence"] = max_confidence
     print('answer:', best_answer)
+    return best_answer, max_confidence
 
-def generate_fact(question, context, return_dict, max_similarity_length=128):
-    # Load the fine-tuned sentence similarity model and tokenizer
+def generate_fact(question, context, max_similarity_length=128):
     similarity_model = AutoModel.from_pretrained('jyw22/sentence_similarity')
-    similarity_tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-distilroberta-base-v1')
+    similarity_tokenizer = AutoTokenizer.from_pretrained('jyw22/sentence_similarity')
 
     inputs1 = similarity_tokenizer(question, return_tensors="pt", padding=True, truncation=True)
     embeddings1 = similarity_model(**inputs1)[0].mean(dim=1).reshape(-1)
@@ -126,7 +122,7 @@ def generate_fact(question, context, return_dict, max_similarity_length=128):
 
     fact1, _ = similarities[top1_index]
 
-    return_dict["fact1"] = fact1
+    return fact1
 
 def generate_response(question, max_qa_length=4096, max_similarity_length=128):
     starttime = time.time()
@@ -135,30 +131,23 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=128):
     with open("context.pk1", 'rb') as file:
         context = pickle.load(file)
 
-    # Generate outputs in parallel
-    manager = multiprocessing.Manager()
-    return_dict = manager.dict()
-    p1 = multiprocessing.Process(target=generate_answer, args=(question, context, return_dict, max_qa_length))
-    p1.start()
-    p2 = multiprocessing.Process(target=generate_fact, args=(question, context, return_dict, max_similarity_length))
-    p2.start()
-    p1.join()
-    p2.join()
+    # Generate outputs
+    answer, confidence = generate_answer(question, context, max_qa_length)
+    fact = generate_fact(question, context, max_similarity_length)
     print('Models took {} seconds'.format(time.time() - starttime))
-    prompt = f"You know the answer is {return_dict['answer']}. You want to respond to the question " \
+    prompt = f"You know the answer is {answer}. You want to respond to the question " \
              f"while mentioning the answer and incorporating this relevant fact " \
-             f"{return_dict['fact1']}. Please generate a smooth script to answer this question as requested" \
+             f"{fact}. Please generate a smooth script to answer this question as requested" \
              f" Produce answer that is about 50 words long." \
 
-    print(return_dict["confidence"])
-    if return_dict["confidence"] < 0.5:
-        confidence = 'low'
-    elif (return_dict["confidence"] >= 0.5 and return_dict["confidence"] < 0.7):
-        confidence = 'mid'
+    if confidence < 0.5:
+        confidence_str = 'low'
+    elif (confidence >= 0.5 and confidence < 0.7):
+        confidence_str = 'mid'
     else:
-        confidence = 'high'
+        confidence_str = 'high'
 
     for chunk in get_response(question, prompt):
-        yield chunk, confidence
+        yield chunk, confidence_str
 
 
