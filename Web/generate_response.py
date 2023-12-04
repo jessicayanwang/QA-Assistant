@@ -1,6 +1,6 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-from transformers import BigBirdForQuestionAnswering, BigBirdTokenizer, AutoModel, AutoTokenizer
+from transformers import pipeline, BigBirdForQuestionAnswering, BigBirdTokenizer, AutoModel, AutoTokenizer
 import torch
 from scipy.spatial.distance import cosine
 import openai
@@ -39,7 +39,8 @@ def get_response(question, prompt):
 def generate_answer(question, context, max_qa_length=4096):
     qa_model = BigBirdForQuestionAnswering.from_pretrained('jyw22/qa_model')
     qa_tokenizer = BigBirdTokenizer.from_pretrained('jyw22/qa_tokenizer')
-
+    qa_pipeline = pipeline("question-answering", model=qa_model, tokenizer=qa_tokenizer)
+    
     # Tokenize the question separately to get the question length
     question_tokens = qa_tokenizer.encode(question, return_tensors="pt")
     question_length = question_tokens.shape[-1]
@@ -65,17 +66,9 @@ def generate_answer(question, context, max_qa_length=4096):
     max_confidence = float('-inf')
     best_answer = None
     for chunk in context_chunks:
-        # Tokenize the inputs
-        inputs = qa_tokenizer.encode_plus(question, chunk, return_tensors="pt")
-
-        # Get model predictions
-        output = qa_model(**inputs)
-        start = torch.argmax(output.start_logits, dim=1).item()
-        end = torch.argmax(output.end_logits, dim=1).item()
-        answer = qa_tokenizer.convert_tokens_to_string(
-            qa_tokenizer.convert_ids_to_tokens(inputs["input_ids"][0][start:end + 1]))
-        confidence = output.start_logits[0, start].item() + output.end_logits[0, end].item()
-        answers.append((answer, confidence))
+        # Get model prediction
+        pred = qa_pipeline(question=question, context=chunk)
+        answers.append((pred["answer"], pred["score"]))
 
     for ans, conf in answers:
         print(ans)
@@ -84,6 +77,7 @@ def generate_answer(question, context, max_qa_length=4096):
             best_answer = ans
 
     print('answer:', best_answer)
+    print(max_confidence)
     return best_answer, max_confidence
 
 def generate_fact(question, context, max_similarity_length=128):
@@ -140,9 +134,9 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=128):
              f"{fact}. Please generate a smooth script to answer this question as requested" \
              f" Produce answer that is about 50 words long." \
 
-    if confidence < 0.5:
+    if confidence < 0.3:
         confidence_str = 'low'
-    elif (confidence >= 0.5 and confidence < 0.7):
+    elif (confidence >= 0.4 and confidence < 0.7):
         confidence_str = 'mid'
     else:
         confidence_str = 'high'

@@ -698,6 +698,8 @@ PlayerSettings:
   platformCapabilities:
     WindowsStoreApps:
       PrivateNetworkClientServer: True
+      InternetClientServer: True
+      InternetClient: True
       Microphone: True
   metroTargetDeviceFamilies:
     Holographic: True
