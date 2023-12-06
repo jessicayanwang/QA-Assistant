@@ -67,6 +67,7 @@ sysinfo.txt
 *.unitypackage
 *.app
 /_[Bb]uilds*/*
+2023_12_05*
 
 # Crashlytics generated file
 crashlytics-build.properties

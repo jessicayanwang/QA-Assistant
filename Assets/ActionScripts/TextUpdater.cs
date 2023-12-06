@@ -14,7 +14,7 @@ public class TextUpdater : MonoBehaviour
 {
     public TextMeshPro targetText;
 
-    private readonly string backendUrl = "http://34.130.78.182/get_target_text";
+    private readonly string backendUrl = "http://34.130.78.182/get_target_text/";
 
     private void Start()
     {
@@ -29,6 +29,7 @@ public class TextUpdater : MonoBehaviour
     IEnumerator FetchAndUpdateText()
     {
         UnityWebRequest request = UnityWebRequest.Get(backendUrl);
+        request.chunkedTransfer = false;
         yield return request.SendWebRequest();
 
         if (request.result == UnityWebRequest.Result.Success)

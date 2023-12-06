@@ -16,7 +16,7 @@
     <script>
         // Function to fetch and display the current target text
         function getCurrentText() {
-            fetch("/get_target_text")
+            fetch("/get_target_text/")
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById("targetText").textContent = data.target_text;
@@ -33,7 +33,7 @@
         document.getElementById("changeTextButton").addEventListener("click", function () {
             const newText = document.getElementById("newText").value;
             if (newText) {
-                fetch("/set_target_text", {
+                fetch("/set_target_text/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"

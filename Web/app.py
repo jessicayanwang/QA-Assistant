@@ -11,14 +11,14 @@ current_confidence = 'high'
 def index():
     return render_template('index.html')
 
-@app.route('/get_target_text', methods=['GET'])
+@app.route('/get_target_text/', methods=['GET'])
 def get_target_text():
     global current_text
     global current_confidence
     return jsonify({"target_text": current_text, 
                     "confidence": current_confidence})
 
-@app.route('/set_target_text', methods=['POST'])
+@app.route('/set_target_text/', methods=['POST'])
 def set_target_text():
     global current_text
     global current_confidence

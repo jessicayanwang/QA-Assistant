@@ -64,7 +64,7 @@ public class DictationEngine : MonoBehaviour
 
     public IEnumerator SendToBackend(string text)
     {
-        string backendUrl = "http://34.130.78.182/set_target_text";
+        string backendUrl = "http://34.130.78.182/set_target_text/";
 
         TargetTextResponse jsonData = new()
         {
@@ -73,6 +73,7 @@ public class DictationEngine : MonoBehaviour
         string jsonDataString = JsonUtility.ToJson(jsonData);
 
         var uwr = new UnityWebRequest(backendUrl, "POST");
+        uwr.chunkedTransfer = false;
         byte[] bodyRaw = new System.Text.UTF8Encoding().GetBytes(jsonDataString);
         uwr.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
         uwr.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
