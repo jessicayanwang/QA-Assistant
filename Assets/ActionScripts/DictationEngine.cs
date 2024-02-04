@@ -12,6 +12,7 @@ public class DictationEngine : MonoBehaviour
 {
     public TextMeshPro outputText;
     public Button startRecoButton;
+    public TextMeshProUGUI buttonText;
 
     private readonly object threadLocker = new();
     private bool waitingForReco;
@@ -23,6 +24,8 @@ public class DictationEngine : MonoBehaviour
 
     public async void ButtonClick()
     {
+        ChangeButtonText("Recording...");
+
         // Creates an instance of a speech config with specified subscription key and service region.
         // Replace with your own subscription key and service region (e.g., "westus").
         var config = SpeechConfig.FromSubscription("68fb38d50fbd4f15a84d473b4a622aa5", "eastus");
@@ -59,7 +62,18 @@ public class DictationEngine : MonoBehaviour
         {
             message = newMessage;
             waitingForReco = false;
+            ChangeButtonText("Start Speaking");
         }
+    }
+
+    private void ChangeButtonText(string newText) {
+        dispatcher.Enqueue(() =>
+        {
+            if (buttonText != null)
+            {
+                buttonText.text = newText;
+            }
+        });
     }
 
     public IEnumerator SendToBackend(string text)
@@ -152,4 +166,3 @@ public class DictationEngine : MonoBehaviour
         }
     }
 }
-// </code>
