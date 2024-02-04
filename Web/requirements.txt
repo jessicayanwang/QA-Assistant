@@ -8,3 +8,4 @@ sentencepiece
 sentence-transformers
 scikit-learn
 openai==0.28
+nltk

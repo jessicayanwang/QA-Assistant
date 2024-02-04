@@ -127,12 +127,6 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=512):
     # Generate outputs
     answer, confidence = generate_answer(question, context, max_qa_length)
     fact = generate_fact(question, context, max_similarity_length)
-    print('Models took {} seconds'.format(time.time() - starttime))
-    prompt = f"You want to respond to a question." \
-             f"You must mention this answer: {answer}." \
-             f"Include the following additional fact if you find it relevant to the question: {fact}." \
-             f"Please generate a smooth script to answer this question as requested" \
-             f" Produce answer that is about 15 words long." \
 
     if confidence < 0.4:
         confidence_str = 'low'
@@ -141,7 +135,7 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=512):
     else:
         confidence_str = 'high'
 
-    for chunk in get_response(question, prompt):
-        yield chunk, confidence_str
+    yield f"Answer: {answer}\n", confidence_str
+    yield f"Fact: {fact}", confidence_str
 
 
