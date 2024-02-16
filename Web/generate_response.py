@@ -1,15 +1,16 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from transformers import pipeline, BigBirdForQuestionAnswering, BigBirdTokenizer, AutoModel, AutoTokenizer
-import torch
 from scipy.spatial.distance import cosine
 import openai
 import re
-import multiprocessing
 import time
 import pickle
-import nltk
 from nltk.tokenize import sent_tokenize
+import asyncio
+
+final_response_started = False
+openai.api_key = "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"
 
 def trim_to_last_complete_sentence(text):
     # Split the text into individual sentences
@@ -22,9 +23,22 @@ def trim_to_last_complete_sentence(text):
     # Join the complete sentences and return
     return " ".join(sentences)
 
+async def get_interim_prompt(question):
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[
+                {"role": "system", "content": "You are a presenter at a conference answering audience questions."},
+                {"role": "user", "content": question}, 
+                {"role": "system", "content": "What should I say to keep the conversation going while I think \
+                 of an answer to the given question? Produce a response that is about 15 words long."}
+        ], 
+        stream=True
+    )
+    for chunk in response:
+        if chunk['choices'][0]["finish_reason"] != "stop":
+            yield chunk['choices'][0]['delta']['content']
 
 def get_response(question, prompt):
-    openai.api_key = "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"
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -32,11 +46,8 @@ def get_response(question, prompt):
                 {"role": "user", "content": question}, 
                 {"role": "system", "content": prompt}
         ], 
-        stream=True
     )
-    for chunk in response:
-        if chunk['choices'][0]["finish_reason"] != "stop":
-            yield chunk['choices'][0]['delta']['content']
+    return response["choices"][0]["message"]["content"]
 
 def generate_answer(question, context, max_qa_length=4096):
     qa_model = BigBirdForQuestionAnswering.from_pretrained('jyw22/qa_model')
@@ -117,7 +128,8 @@ def generate_fact(question, context, max_similarity_length=512):
     print(f"fact: {top_fact}")
     return top_fact
 
-def generate_response(question, max_qa_length=4096, max_similarity_length=512):
+async def generate_response(question, max_qa_length=4096, max_similarity_length=512):
+    global final_response_started
     starttime = time.time()
     
     # Load context
@@ -141,7 +153,22 @@ def generate_response(question, max_qa_length=4096, max_similarity_length=512):
     else:
         confidence_str = 'high'
 
-    for chunk in get_response(question, prompt):
-        yield chunk, confidence_str
+    final_response_started = True
 
+    return get_response(question, prompt), confidence_str
 
+async def main(question):
+    global final_response_started
+
+    # Start generating the final response
+    response_task = asyncio.create_task(generate_response(question))
+
+    # Start streaming interim prompts until the final response has started
+    async for prompt in get_interim_prompt(question):
+        if final_response_started:
+            break  # Exit the loop if the final response has started
+        yield prompt, 'high'  # Yield interim prompts with high confidence
+
+    # Now, yield chunks from the final response
+    response, confidence_str = await(response_task)
+    yield response, confidence_str

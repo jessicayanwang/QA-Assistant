@@ -13,47 +13,26 @@
     <input type="text" id="newText" placeholder="Enter new question">
     <button id="changeTextButton">Submit</button>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Function to fetch and display the current target text
-        function getCurrentText() {
-            fetch("/get_target_text/")
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById("targetText").textContent = data.target_text;
-                })
-                .catch(error => {
-                    console.error("Error fetching current text:", error);
-                });
-        }
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
 
-        // Initial load of current target text
-        getCurrentText();
-
-        // Event listener for changing the target text
         document.getElementById("changeTextButton").addEventListener("click", function () {
-            const newText = document.getElementById("newText").value;
-            if (newText) {
-                fetch("/set_target_text/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ target_text: newText })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.message) {
-                        document.getElementById("newText").value = ""; // Clear input field
-                        getCurrentText(); // Update displayed text
-                    } else {
-                        console.error("Error changing text:", data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error changing text:", error);
-                });
+            const question = document.getElementById("newText").value;
+            if (question) {
+                socket.emit('generate_response', {question: question});
+                document.getElementById("newText").value = ""; // Clear input field
             }
         });
+
+        socket.on('response_chunk', function(data) {
+            document.getElementById("targetText").textContent += data.chunk;
+        });
+
+        socket.on('response_complete', function(data) {
+            console.log("Response generation complete");
+        });
     </script>
+
 </body>
 </html>
