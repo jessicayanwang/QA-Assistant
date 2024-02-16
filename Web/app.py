@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 import asyncio
 import threading
-from Web.generate_response import *
+from Web.generate_answers import *
 
 app = Flask(__name__)
 

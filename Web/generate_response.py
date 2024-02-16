@@ -165,8 +165,8 @@ async def main(question):
 
     # Start streaming interim prompts until the final response has started
     async for prompt in get_interim_prompt(question):
-        if final_response_started:
-            break  # Exit the loop if the final response has started
+        if final_response_started: 
+            break
         yield prompt, 'high'  # Yield interim prompts with high confidence
 
     # Now, yield chunks from the final response
