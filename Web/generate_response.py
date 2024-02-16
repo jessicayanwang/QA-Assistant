@@ -171,4 +171,4 @@ async def main(question):
 
     # Now, yield chunks from the final response
     response, confidence_str = await(response_task)
-    yield response, confidence_str
+    yield "\n" + response, confidence_str
