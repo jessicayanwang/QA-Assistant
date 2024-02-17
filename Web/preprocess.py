@@ -23,7 +23,7 @@ def extract_text_from_pdf(pdf_file):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--context", type=str, default='paper', help='pdf title without the extension')
+    parser.add_argument("--context", type=str, default='Web/paper', help='pdf title without the extension')
     args = parser.parse_args()
     # Convert pdf file to a text file
     pdf_file_path = args.context + '.pdf'
