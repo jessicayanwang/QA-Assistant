@@ -159,6 +159,7 @@ async def generate_response(question, max_qa_length=4096, max_similarity_length=
 
 async def main(question):
     global final_response_started
+    final_response_started = False
 
     # Start generating the final response
     response_task = asyncio.create_task(generate_response(question))
