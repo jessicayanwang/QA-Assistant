@@ -10,7 +10,6 @@ using TMPro;
 
 public class DictationEngine : MonoBehaviour
 {
-    public TextMeshPro outputText;
     public Button startRecoButton;
     public TextMeshProUGUI buttonText;
 
@@ -103,25 +102,13 @@ public class DictationEngine : MonoBehaviour
         {
             dispatcher.Enqueue(() => Debug.Log("Data sent to backend successfully"));
         }
-
-        // Use the dispatcher to update the UI from the main thread
-        dispatcher.Enqueue(() => {
-            if (outputText != null)
-            {
-                outputText.text = message;
-            }
-        });
     }
 
     void Start()
     {
         dispatcher = UnityMainThreadDispatcher.Instance(); // Get the instance of the dispatcher
 
-        if (outputText == null)
-        {
-            Debug.LogError("outputText property is null! Assign a UI Text element to it.");
-        }
-        else if (startRecoButton == null)
+        if (startRecoButton == null)
         {
             message = "startRecoButton property is null! Assign a UI Button to it.";
             Debug.LogError(message);
@@ -158,10 +145,6 @@ public class DictationEngine : MonoBehaviour
             if (startRecoButton != null)
             {
                 startRecoButton.interactable = !waitingForReco && micPermissionGranted;
-            }
-            if (outputText != null)
-            {
-                outputText.text = message;
             }
         }
     }

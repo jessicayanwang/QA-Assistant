@@ -30,7 +30,8 @@ async def get_interim_prompt(question):
                 {"role": "system", "content": "You are a presenter at a conference answering audience questions."},
                 {"role": "user", "content": question}, 
                 {"role": "system", "content": "What should I say to keep the conversation going while I think \
-                 of an answer to the given question? Produce a response that is about 15 words long."}
+                 of an answer to the given question? Consider techniques such as repeating the question, asking for clarification, etc \
+                 Produce a response that is about 15 words long."}
         ], 
         stream=True
     )
@@ -143,8 +144,8 @@ async def generate_response(question, max_qa_length=4096, max_similarity_length=
     prompt = f"You want to respond to a question." \
              f"You must mention this answer: {answer}." \
              f"Include the following additional fact if you find it relevant to the question: {fact}." \
-             f"Please generate a smooth script to answer this question as requested" \
-             f" Produce answer that is about 15 words long." \
+             f"Please generate a smooth script to answer this question as requested." \
+             f"Produce a response that is no longer than 30 words." \
 
     if confidence < 0.4:
         confidence_str = 'low'
